@@ -7,6 +7,7 @@ import csv
 import numpy as np
 import cv2
 import subprocess
+import fs
 
 class Section(object):
     """
@@ -53,6 +54,40 @@ class Section(object):
         return Section(all_mfovs, layer=layer, bbox=bbox, **kwargs)
 
     @classmethod
+    def _read_image_size(cls, image_fname):
+        with fs.open_fs(fs.path.dirname(image_fname)) as image_fs:
+            with image_fs.open(fs.path.basename(image_fname), "rb") as image_f:
+                img_buf = image_f.read()
+        np_arr = np.frombuffer(img_buf, np.uint8)
+        img = cv2.imdecode(np_arr, 0)
+        return img.shape
+
+    @classmethod
+    def _read_lines_using_cat(cls, input_file):
+        # Instead of just opening the file, opening the sorted file, so the tiles will be arranged
+        sorted_lines = subprocess.check_output('cat "{}" | sort'.format(input_file), shell=True)
+        assert(len(sorted_lines) > 0)
+        sorted_lines = sorted_lines.decode('ascii').split('\r\n')
+        for line in sorted_lines:
+            yield line
+
+    @classmethod
+    def _read_lines(cls, input_file):
+        if input_file.startswith('/') or input_file.startswith('osfs://'):
+            return Section._read_lines_using_car(input_file.replace('osfs://', ''))
+
+        # open the file, sort the lines, and return the relevant data
+        with fs.open_fs(fs.path.dirname(input_file)) as cur_fs:
+            with cur_fs.open(fs.path.basename(input_file), "rt") as cur_f:
+                sorted_lines = cur_f.read()
+        assert(len(sorted_lines) > 0)
+        sorted_lines = sorted(sorted_lines.split('\r\n'))
+        for line in sorted_lines:
+            yield line
+
+
+
+    @classmethod
     def _parse_coordinates_file(cls, input_file):
         # Read the relevant mfovs tiles locations
         images_dict = {}
@@ -60,10 +95,11 @@ class Section(object):
         x = []
         y = []
         # Instead of just opening the file, opening the sorted file, so the tiles will be arranged
-        sorted_lines = subprocess.check_output('cat "{}" | sort'.format(input_file), shell=True)
-        assert(len(sorted_lines) > 0)
-        sorted_lines = sorted_lines.decode('ascii').split('\r\n')
-        for line in sorted_lines:
+#        sorted_lines = subprocess.check_output('cat "{}" | sort'.format(input_file), shell=True)
+#        assert(len(sorted_lines) > 0)
+#        sorted_lines = sorted_lines.decode('ascii').split('\r\n')
+#        for line in sorted_lines:
+        for line in Section._read_lines(input_file):
             line_data = line.split('\t')
             img_fname = line_data[0].replace('\\', '/')
             # Make sure that the mfov appears in the relevant mfovs
@@ -98,20 +134,20 @@ class Section(object):
 
 
     @classmethod
-    def create_from_full_image_coordinates(cls, full_image_coordinates_fname, layer, tile_size=None, relevant_mfovs=None, **kwargs):
+    def create_from_full_image_coordinates(cls, full_image_coordinates_fname, layer, cur_fs=fs.open_fs("/"), tile_size=None, relevant_mfovs=None, **kwargs):
         """
         Creates a section from a given full_image_coordinates filename
         """
-        images, x_locs, y_locs = Section._parse_coordinates_file(full_image_coordinates_fname)
+        full_image_coordinates_fname_fs = cur_fs.geturl(full_image_coordinates_fname)
+        images, x_locs, y_locs = Section._parse_coordinates_file(full_image_coordinates_fname_fs)
         assert(len(images) > 0)
-        section_folder = os.path.dirname(full_image_coordinates_fname)
+        section_folder = fs.path.dirname(full_image_coordinates_fname_fs)
 
         # Update tile_size if needed
         if tile_size is None:
             # read the first image
             img_fname = os.path.join(section_folder, images[0])
-            img = cv2.imread(img_fname, 0)
-            tile_size = img.shape
+            tile_size = Section._read_image_size(img_fname)
 
         # normalize the locations of all the tiles (reset to (0, 0))
         x_locs -= np.min(x_locs)
@@ -128,7 +164,7 @@ class Section(object):
             if relevant_mfovs is not None and mfov_idx not in relevant_mfovs:
                 continue
             tile_idx = int(split_data[2])
-            print('adding mfov_idx %d, tile_idx %d' % (mfov_idx, tile_idx))
+            #print('adding mfov_idx %d, tile_idx %d' % (mfov_idx, tile_idx))
             tile = Tile.create_from_input(tile_fname, tile_size, (tile_x, tile_y), layer, mfov_idx, tile_idx)
             per_mfov_tiles[mfov_idx].append(tile)
             
@@ -142,17 +178,18 @@ class Section(object):
         return Section(all_mfovs, layer=layer, bbox=bbox, **kwargs)
 
     @classmethod
-    def _parse_mfov_coordinates_file(cls, input_file):
+    def _parse_mfov_coordinates_file(cls, cur_fs, input_file):
         # Read the relevant mfovs tiles locations
         images_dict = {}
         images = []
         x = []
         y = []
-        # Instead of just opening the file, opening the sorted file, so the tiles will be arranged
-        sorted_lines = subprocess.check_output('cat "{}" | sort'.format(input_file), shell=True)
-        assert(len(sorted_lines) > 0)
-        sorted_lines = sorted_lines.decode('ascii').split('\r\n')
-        for line in sorted_lines:
+#         # Instead of just opening the file, opening the sorted file, so the tiles will be arranged
+#         sorted_lines = subprocess.check_output('cat "{}" | sort'.format(input_file), shell=True)
+#         assert(len(sorted_lines) > 0)
+#         sorted_lines = sorted_lines.decode('ascii').split('\r\n')
+#         for line in sorted_lines:
+        for line in Section._read_lines(input_file):
             line_data = line.split('\t')
             img_fname = line_data[0].replace('\\', '/')
             if len(img_fname) == 0:
@@ -185,7 +222,7 @@ class Section(object):
 
 
     @classmethod
-    def create_from_mfovs_image_coordinates(cls, mfovs_image_coordinates_fnames, layer, tile_size=None, relevant_mfovs=None, **kwargs):
+    def create_from_mfovs_image_coordinates(cls, mfovs_image_coordinates_fnames, layer, cur_fs=fs.open_fs("/"), tile_size=None, relevant_mfovs=None, **kwargs):
         """
         Creates a section from multiple per-mfov image_coordinates filenames
         """
@@ -193,8 +230,9 @@ class Section(object):
         x_locs = []
         y_locs = []
         for mfov_image_coordinates_fname in mfovs_image_coordinates_fnames:
-            mfov_images, mfov_x_locs, mfov_y_locs = Section._parse_mfov_coordinates_file(mfov_image_coordinates_fname)
-            images.extend([os.path.join(os.path.dirname(mfov_image_coordinates_fname), mfov_image) for mfov_image in mfov_images])
+            mfov_image_coordinates_fname_fs = cur_fs.geturl(mfov_image_coordinates_fname)
+            mfov_images, mfov_x_locs, mfov_y_locs = Section._parse_mfov_coordinates_file(mfov_image_coordinates_fname_fs)
+            images.extend([fs.path.dirname(mfov_image_coordinates_fname_fs) + mfov_image for mfov_image in mfov_images])
             x_locs.extend(mfov_x_locs)
             y_locs.extend(mfov_y_locs)
         assert(len(images) > 0)
@@ -203,8 +241,7 @@ class Section(object):
         if tile_size is None:
             # read the first image - assuming all files of the same shape
             img_fname = images[0]
-            img = cv2.imread(img_fname, 0)
-            tile_size = img.shape
+            tile_size = Section._read_image_size(img_fname)
 
         # normalize the locations of all the tiles (reset to (0, 0))
         x_locs -= np.min(x_locs)
@@ -220,7 +257,7 @@ class Section(object):
             if relevant_mfovs is not None and mfov_idx not in relevant_mfovs:
                 continue
             tile_idx = int(split_data[2])
-            print('adding mfov_idx %d, tile_idx %d' % (mfov_idx, tile_idx))
+            #print('adding mfov_idx %d, tile_idx %d' % (mfov_idx, tile_idx))
             tile = Tile.create_from_input(tile_fname, tile_size, (tile_x, tile_y), layer, mfov_idx, tile_idx)
             per_mfov_tiles[mfov_idx].append(tile)
             

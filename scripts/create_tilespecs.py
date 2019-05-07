@@ -9,6 +9,7 @@ import glob
 import common
 import pickle
 from mb_aligner.dal.section import Section
+from fs import open_fs
 
 
 def sec_dir_to_wafer_section(sec_dir, args_wafer_num=None):
@@ -72,8 +73,9 @@ def parse_filtered_mfovs(filtered_mfovs_pkl):
 
 def create_tilespecs(args):
 
+    cur_fs = open_fs(args.wafer_folder)
     # parse the workflows directory
-    sections_map = common.parse_workflows_folder(args.wafer_folder)
+    sections_map = common.parse_workflows_folder(cur_fs, args.wafer_folder)
 
     logger.report_event("Finished parsing sections", log_level=logging.INFO)
 
@@ -119,9 +121,9 @@ def create_tilespecs(args):
         layer_num = get_layer_num(sec_num, args.initial_layer_num)
         if isinstance(sections_map[sec_num], list):
             # TODO - not implemented yet
-            section = Section.create_from_mfovs_image_coordinates(sections_map[sec_num], layer_num, relevant_mfovs=sec_relevant_mfovs)
+            section = Section.create_from_mfovs_image_coordinates(sections_map[sec_num], layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
         else:
-            section = Section.create_from_full_image_coordinates(sections_map[sec_num], layer_num, relevant_mfovs=sec_relevant_mfovs)
+            section = Section.create_from_full_image_coordinates(sections_map[sec_num], layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
         section.save_as_json(out_ts_fname)
 
 if __name__ == '__main__':

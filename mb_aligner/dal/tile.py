@@ -4,6 +4,7 @@ import json
 import cv2
 import math
 from rh_renderer import models
+from .fs_access import FSAccess
 
 class Tile(object):
     """
@@ -11,7 +12,7 @@ class Tile(object):
     """
 
     def __init__(self, img_fname, **kwargs):
-        self._img_fname = img_fname.replace("file://", "")
+        self._img_fname = img_fname#.replace("file://", "")
 
         # Initialize default values
         self._img = None
@@ -65,10 +66,14 @@ class Tile(object):
         """
         Creates a tile using the given parameters
         """
+        if "://" in img_fname:
+            img_url = img_fname
+        else:
+            img_url = "osfs://{}".format(img_fname)
         tilespec = {
             "mipmapLevels" : {
                 "0" : {
-                    "imageUrl" : "file://{0}".format(img_fname.replace(os.path.sep, '/'))
+                    "imageUrl" : img_url
                 }
             },
             "minIntensity" : 0.0,
@@ -173,7 +178,11 @@ class Tile(object):
         """
         Loads the image of the tile
         """
-        return cv2.imread(self._img_fname, 0) 
+        with FSAccess(self._img_fname, True) as image_f:
+            img_buf = image_f.read()
+            np_arr = np.frombuffer(img_buf, np.uint8)
+            img = cv2.imdecode(np_arr, 0)
+        return img
 
     def add_ts_transform(self, modelspec):
         """
@@ -215,10 +224,14 @@ class Tile(object):
         """
         Returns a tilespec representation of the tile
         """
+        if "://" in self._img_fname:
+            img_url = self._img_fname
+        else:
+            img_url = "osfs://{}".format(self._img_fname)
         tilespec = {
             "mipmapLevels" : {
                 "0" : {
-                    "imageUrl" : "file://{0}".format(self._img_fname.replace(os.path.sep, '/'))
+                    "imageUrl" : img_url
                 }
             },
             "minIntensity" : 0.0,
