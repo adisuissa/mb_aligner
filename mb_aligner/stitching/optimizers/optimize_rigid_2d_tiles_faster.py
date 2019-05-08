@@ -52,7 +52,7 @@ class Rigid2DOptimizerFaster(object):
             self._dst_tiles_idxs_all[counter:counter + pair_matches_len] = tile_names_map[pair_name[1]]
             counter += pair_matches_len
 
-        #self._residuals_vector = np.empty_like(p0)
+        self._residuals_vector = np.empty((matches_num, ), dtype=np.float32)
 
 
     @staticmethod
@@ -84,9 +84,9 @@ class Rigid2DOptimizerFaster(object):
         deltas = pts1_transformed - pts2_transformed
 
         #np.sqrt(np.sum(deltas**2, axis=1), out=self._residuals)
-        self._residuals = np.sqrt(np.sum(deltas**2, axis=1))
+        np.sqrt(np.sum(deltas**2, axis=1), self._residuals_vector)
 
-        return self._residuals
+        return self._residuals_vector
 
     def _compute_cost(self, cur_p):
         cost = np.sum(self._optimize_func(cur_p))
@@ -136,14 +136,14 @@ class Rigid2DOptimizerFaster(object):
         delta_y = deltas[:, 1]
 
         #np.sqrt(np.sum(deltas**2, axis=1), out=self._residuals)
-        self._residuals = np.sqrt(np.sum(deltas**2, axis=1))
+        np.sqrt(np.sum(deltas**2, axis=1), out=self._residuals_vector)
 
-        residuals_huber_mask = self._residuals <= huber_delta
+        residuals_huber_mask = self._residuals_vector <= huber_delta
 
         # The gradient coefficient for anything that is below the huber delta is 1, and anything above should be:
         # (delta / R), where R is the distance between the two points
-        grad_f_multiplier = np.ones_like(self._residuals)
-        grad_f_multiplier[~residuals_huber_mask] = huber_delta / self._residuals[~residuals_huber_mask]
+        grad_f_multiplier = np.ones_like(self._residuals_vector)
+        grad_f_multiplier[~residuals_huber_mask] = huber_delta / self._residuals_vector[~residuals_huber_mask]
 
         # update the grad_f per each match (and later sum them per tile)
         theta1_idxs = self._src_tiles_idxs_all * 3
