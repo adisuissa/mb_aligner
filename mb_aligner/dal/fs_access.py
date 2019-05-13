@@ -9,6 +9,7 @@ class FSAccessRegistry(object):
     A per-process (Singleton) filesystem access layer, that holds all the relevant file system access objects
     """
 
+    MAX_TRIES = 3
 
     def __new__(cls):
         if not hasattr(cls, '__instance'):
@@ -27,7 +28,18 @@ class FSAccessRegistry(object):
         else:
             fs = self._registered_fs[url_unique_id]
         read_str = "rb" if binary else "rt"
-        return fs.open(parsed_url.path, read_str)
+        try_counter = 0
+        while try_counter <= FSAccessRegistry.MAX_TRIES:
+            try:
+                res = fs.open(parsed_url.path, read_str)
+                return res
+            except:
+                try_counter += 1
+                if try_counter > FSAccessRegistry.MAX_TRIES:
+                    raise
+                print("Re-Reading path: {}".format(url))
+        # should not reach here
+        return None
 
 class FSAccess(object):
 
