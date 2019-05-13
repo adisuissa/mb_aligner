@@ -4,7 +4,7 @@ import json
 import cv2
 import math
 from rh_renderer import models
-from .fs_access import FSAccess
+import mb_aligner.dal.common
 
 class Tile(object):
     """
@@ -178,11 +178,7 @@ class Tile(object):
         """
         Loads the image of the tile
         """
-        with FSAccess(self._img_fname, True) as image_f:
-            img_buf = image_f.read()
-            np_arr = np.frombuffer(img_buf, np.uint8)
-            img = cv2.imdecode(np_arr, 0)
-        return img
+        return mb_aligner.dal.common.read_image_file(self._img_fname)
 
     def add_ts_transform(self, modelspec):
         """
