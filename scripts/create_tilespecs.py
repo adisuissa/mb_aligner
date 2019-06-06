@@ -32,8 +32,11 @@ def sec_dir_to_wafer_section(sec_dir, args_wafer_num=None):
     return wafer_num, sec_num
 
 
-def get_layer_num(sec_num, initial_layer_num):
-    layer_num = sec_num + initial_layer_num - 1
+def get_layer_num(sec_num, initial_layer_num, reverse, max_sec_num):
+    if reverse:
+        layer_num = max_sec_num - sec_num + initial_layer_num
+    else:
+        layer_num = sec_num + initial_layer_num - 1
     return layer_num
 
 
@@ -53,6 +56,8 @@ def parse_args(args=None):
     parser.add_argument("-w", "--wafer_num", metavar="wafer_num", type=int,
                         help="Manually set the wafer number for the output files (default: parse from wafer folder)",
                         default=None)
+    parser.add_argument('--reverse', action='store_true',
+                        help='reverse the section numbering (reversed filename lexicographical order)')
     
     return parser.parse_args(args)
 
@@ -84,7 +89,8 @@ def create_tilespecs(args):
         logger.report_event("Minimal section # found: {}".format(min(sorted_sec_keys)), log_level=logging.WARN)
     
     logger.report_event("Found {} sections in {}".format(len(sections_map), args.wafer_folder), log_level=logging.INFO)
-    if len(sorted_sec_keys) != max(sorted_sec_keys):
+    max_sec_num = max(sorted_sec_keys)
+    if len(sorted_sec_keys) != max_sec_num:
         logger.report_event("There are {} sections, but maximal section # found: {}".format(len(sections_map), max(sorted_sec_keys)), log_level=logging.WARN)
         missing_sections = [i for i in range(1, max(sorted_sec_keys)) if i not in sections_map]
         logger.report_event("Missing sections: {}".format(missing_sections), log_level=logging.WARN)
@@ -118,7 +124,7 @@ def create_tilespecs(args):
                 continue
             sec_relevant_mfovs = filtered_mfovs_map[wafer_num, sec_num]
 
-        layer_num = get_layer_num(sec_num, args.initial_layer_num)
+        layer_num = get_layer_num(sec_num, args.initial_layer_num, args.reverse, max_sec_num)
         if isinstance(sections_map[sec_num], list):
             # TODO - not implemented yet
             section = Section.create_from_mfovs_image_coordinates(sections_map[sec_num], layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
