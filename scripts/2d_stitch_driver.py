@@ -45,7 +45,10 @@ def run_stitcher(args):
         print("Stitching {}".format(in_ts_fname))
         with open(in_ts_fname, 'rt') as in_f:
             in_ts = ujson.load(in_f)
-            section = Section.create_from_tilespec(in_ts)
+
+            wafer_num = int(os.path.basename(in_ts_fname).split('_')[0].split('W')[1])
+            sec_num = int(os.path.basename(in_ts_fname).split('.')[0].split('_')[1].split('Sec')[1])
+            section = Section.create_from_tilespec(in_ts, wafer_section=(wafer_num, sec_num))
             stitcher.stitch_section(section) 
 
             # Save the tilespec
