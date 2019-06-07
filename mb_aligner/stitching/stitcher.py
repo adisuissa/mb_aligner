@@ -20,6 +20,7 @@ from collections import defaultdict
 import tinyr
 import importlib
 import mb_aligner.common.utils
+import pickle
 
 #from ..pipeline.task_runner import TaskRunner
 #import queue
@@ -270,6 +271,11 @@ class Stitcher(object):
         assert(detector_threads > 0)
         assert(matcher_threads > 0)
 
+        self._intermediate_directory = conf.get('intermediate_dir', None)
+        if self._intermediate_directory is not None:
+            if not os.path.exists(self._intermediate_directory):
+                os.makedirs(self._intermediate_directory)
+
 
         # The design is as follows:
         # - There will be N1 detectors and N2 matchers (each with its own thread/process - TBD)
@@ -504,6 +510,12 @@ class Stitcher(object):
             logger.report_event("Couldn't find enough matches for section {}, skipping optimization".format(section.canonical_section_name_no_layer), log_level=logging.ERROR)
             return
                 
+        if self._intermediate_directory is not None:
+            intermediate_fname = os.path.join(self._intermediate_directory, '{}.pkl'.format(section.canonical_section_name_no_layer))
+            logger.report_event("Saving intermediate result to: {}".format(intermediate_fname), log_level=logging.INFO)
+            with open(intermediate_fname, 'wb') as out_f:
+                pickle.dump(match_results_map, out_f)
+
         logger.report_event("Starting optimization", log_level=logging.INFO)
         # Generate a map between tile and its original estimated location
         orig_locations = {}
