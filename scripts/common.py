@@ -7,6 +7,8 @@ from rh_logger.api import logger
 import logging
 import rh_logger
 import fs.path
+import fs
+from urllib.parse import urlparse
 
 def read_bboxes_grep(ts_fname):
     def parse_bbox_lines(bbox_lines):
@@ -123,4 +125,14 @@ def parse_workflows_folder(cur_fs, workflows_folder):
     # full_result = {k:full_result[k] for k in first_keys}
     return full_result
 
+def get_fs_parsed_url(url):
+    parsed_url = urlparse(url)
+    url_prefix = "{}://{}".format(parsed_url.scheme, parsed_url.netloc)
+    return url_prefix, parsed_url.path
+
+def fs_create_dir(output_dir):
+    fs_loc, fs_path = get_fs_parsed_url(output_dir)
+    with fs.open_fs(fs_loc) as out_fs:
+        if not out_fs.exists(fs_path):
+            out_fs.makedirs(fs_path)
 

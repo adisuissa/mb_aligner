@@ -9,7 +9,7 @@ import glob
 import common
 import pickle
 from mb_aligner.dal.section import Section
-from fs import open_fs
+import fs
 
 
 def sec_dir_to_wafer_section(sec_dir, args_wafer_num=None):
@@ -78,7 +78,7 @@ def parse_filtered_mfovs(filtered_mfovs_pkl):
 
 def create_tilespecs(args):
 
-    cur_fs = open_fs(args.wafer_folder)
+    cur_fs = fs.open_fs(args.wafer_folder)
     # parse the workflows directory
     sections_map = common.parse_workflows_folder(cur_fs, args.wafer_folder)
 
@@ -103,8 +103,7 @@ def create_tilespecs(args):
 
     logger.report_event("Outputing sections to tilespecs directory: {}".format(args.output_dir), log_level=logging.INFO)
 
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    common.fs_create_dir(args.output_dir)
 
     for sec_num in sorted_sec_keys:
         # extract wafer and section# from directory name
