@@ -10,6 +10,7 @@ import common
 import pickle
 from mb_aligner.dal.section import Section
 import fs
+import multiprocessing as mp
 
 
 def sec_dir_to_wafer_section(sec_dir, args_wafer_num=None):
@@ -58,8 +59,22 @@ def parse_args(args=None):
                         default=None)
     parser.add_argument('--reverse', action='store_true',
                         help='reverse the section numbering (reversed filename lexicographical order)')
+    parser.add_argument("-p", "--processes_num", metavar="processes_num", type=int,
+                        help="The unmber of processes to use (default: 1)",
+                        default=1)
     
     return parser.parse_args(args)
+
+def create_and_save_single_section(sec_relevant_mfovs, sections_map_sec_num, layer_num, wafer_folder, out_ts_fname):
+
+    cur_fs = fs.open_fs(wafer_folder)
+    if isinstance(sections_map_sec_num, list):
+        # TODO - not implemented yet
+        section = Section.create_from_mfovs_image_coordinates(sections_map_sec_num, layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
+    else:
+        section = Section.create_from_full_image_coordinates(sections_map_sec_num, layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
+    section.save_as_json(out_ts_fname)
+
 
 def parse_filtered_mfovs(filtered_mfovs_pkl):
     with open(filtered_mfovs_pkl, 'rb') as in_f:
@@ -105,6 +120,10 @@ def create_tilespecs(args):
 
     common.fs_create_dir(args.output_dir)
 
+    pool = mp.Pool(processes=args.processes_num)
+
+    pool_results = []
+
     for sec_num in sorted_sec_keys:
         # extract wafer and section# from directory name
         if isinstance(sections_map[sec_num], list):
@@ -115,6 +134,8 @@ def create_tilespecs(args):
         if os.path.exists(out_ts_fname):
             logger.report_event("Already found tilespec: {}, skipping".format(os.path.basename(out_ts_fname)), log_level=logging.INFO)
             continue
+        layer_num = get_layer_num(sec_num, args.initial_layer_num, args.reverse, max_sec_num)
+
 
         sec_relevant_mfovs = None
         if filtered_mfovs_map is not None:
@@ -123,13 +144,12 @@ def create_tilespecs(args):
                 continue
             sec_relevant_mfovs = filtered_mfovs_map[wafer_num, sec_num]
 
-        layer_num = get_layer_num(sec_num, args.initial_layer_num, args.reverse, max_sec_num)
-        if isinstance(sections_map[sec_num], list):
-            # TODO - not implemented yet
-            section = Section.create_from_mfovs_image_coordinates(sections_map[sec_num], layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
-        else:
-            section = Section.create_from_full_image_coordinates(sections_map[sec_num], layer_num, cur_fs=cur_fs, relevant_mfovs=sec_relevant_mfovs)
-        section.save_as_json(out_ts_fname)
+
+        res = pool.apply_async(create_and_save_single_section, (sec_relevant_mfovs, sections_map[sec_num], layer_num, args.wafer_folder, out_ts_fname))
+        pool_results.append(res)
+
+    for res in pool_results:
+        res.get()
 
 if __name__ == '__main__':
     args = parse_args()
