@@ -337,8 +337,12 @@ class Section(object):
         """
         Saves the section as a tilespec
         """
-        with open(out_fname, 'w') as out_f:
-            json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
+        #with open(out_fname, 'w') as out_f:
+        #    json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
+        with fs.open_fs(fs.path.dirname(out_fname)) as out_fs:
+            with out_fs.open(fs.path.basename(out_fname), "w") as out_f:
+                json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
+
 
     def get_mfov(self, mfov_idx):
         '''
