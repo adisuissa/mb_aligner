@@ -514,7 +514,7 @@ class Stitcher(object):
             intermediate_fname = os.path.join(self._intermediate_directory, '{}.pkl'.format(section.canonical_section_name_no_layer))
             logger.report_event("Saving intermediate result to: {}".format(intermediate_fname), log_level=logging.INFO)
             with open(intermediate_fname, 'wb') as out_f:
-                pickle.dump(match_results_map, out_f)
+                pickle.dump(match_results_map, out_f, protocol=pickle.HIGHEST_PROTOCOL)
 
         logger.report_event("Starting optimization", log_level=logging.INFO)
         # Generate a map between tile and its original estimated location
