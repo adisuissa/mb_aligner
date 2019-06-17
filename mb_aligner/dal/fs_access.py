@@ -19,7 +19,7 @@ class FSAccessRegistry(object):
     def __init__(self):
         self._registered_fs = {}
 
-    def open_read(self, url, binary=True):
+    def _open(self, url, rw_str):
         parsed_url = urlparse(url)
         url_unique_id = "{}://{}".format(parsed_url.scheme, parsed_url.netloc)
         if url_unique_id not in self._registered_fs:
@@ -27,28 +27,42 @@ class FSAccessRegistry(object):
             self._registered_fs[url_unique_id] = fs
         else:
             fs = self._registered_fs[url_unique_id]
-        read_str = "rb" if binary else "rt"
         try_counter = 0
         while try_counter <= FSAccessRegistry.MAX_TRIES:
             try:
-                res = fs.open(parsed_url.path, read_str)
+                res = fs.open(parsed_url.path, rw_str)
                 return res
             except:
                 try_counter += 1
                 if try_counter > FSAccessRegistry.MAX_TRIES:
                     raise
-                print("Re-Reading path: {}".format(url))
+                print("Re-accessing path: {} ({})".format(url, rw_str))
         # should not reach here
         return None
 
+
+    def open_read(self, url, binary=True):
+        read_str = "rb" if binary else "rt"
+        return self._open(url, read_str)
+
+    def open_write(self, url, binary=True):
+        write_str = "wb" if binary else "wt"
+        return self._open(url, write_str)
+
+
+
 class FSAccess(object):
 
-    def __init__(self, _url, binary):
+    def __init__(self, _url, binary, read=True):
         self._url = _url
         self._binary = binary
+        self._read = read
 
     def __enter__(self):
-        self._handle = FSAccessRegistry().open_read(self._url, self._binary)
+        if self._read:
+            self._handle = FSAccessRegistry().open_read(self._url, self._binary)
+        else:
+            self._handle = FSAccessRegistry().open_write(self._url, self._binary)
         return self._handle
 
     def __exit__(self, type, value, traceback):
