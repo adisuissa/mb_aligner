@@ -15,6 +15,8 @@ import math
 #from rh_renderer.normalization.histogram_diff_minimization import HistogramDiffMinimization
 from rh_renderer.normalization.histogram_clahe import HistogramCLAHE, HistogramGB11CLAHE
 import common
+import rh_img_access_layer
+
 
 def pad_image(img, from_x, from_y, start_point):
     """Pads the image (zeros) that starts from start_point (returned from the renderer), to (from_x, from_y)"""
@@ -76,7 +78,8 @@ def render_tilespec(tile_fname, output, scale, output_type, in_bbox, tile_size, 
         if hist_adjuster_alg_type.upper() == 'GB11CLAHE':
             hist_adjuster = HistogramGB11CLAHE()
 
-    with open(tile_fname, 'r') as data:
+    with rh_img_access_layer.FSAccess(tile_fname, False) as data:
+    #with open(tile_fname, 'r') as data:
         tilespec = ujson.load(data)
     renderer = TilespecRenderer(tilespec, hist_adjuster=hist_adjuster, dynamic=(scale != 1.0), blend_type=blend_type)
 
@@ -129,7 +132,8 @@ def render_tilespec(tile_fname, output, scale, output_type, in_bbox, tile_size, 
             if img is None or np.all(img == 0):
                 # create the empty file, and return
                 print("saving empty image {}".format(out_fname_empty))
-                open(out_fname_empty, 'a').close()
+                #open(out_fname_empty, 'a').close()
+                rh_img_access_layer.FSAccess(out_fname_empty, True, read=False).close()
                 print("Rendering and saving empty file {} took {} seconds.".format(out_fname_empty, time.time() - start_time))
                 return
                 
@@ -146,7 +150,8 @@ def render_tilespec(tile_fname, output, scale, output_type, in_bbox, tile_size, 
             img = 255 - img
 
         print("saving image {}".format(out_fname))
-        cv2.imwrite(out_fname, img)
+        #cv2.imwrite(out_fname, img)
+        rh_img_access_layer.write_image_file(out_fname, img)
     else:
         # Tile the image
         rows = int(math.ceil(out_shape[1] / float(tile_size)))
@@ -178,7 +183,8 @@ def render_tilespec(tile_fname, output, scale, output_type, in_bbox, tile_size, 
                     if img is None or np.all(img == 0):
                         # create the empty file, and return
                         print("saving empty image {}".format(out_fname_empty))
-                        open(out_fname_empty, 'a').close()
+                        #open(out_fname_empty, 'a').close()
+                        rh_img_access_layer.FSAccess(out_fname_empty, True, read=False).close()
                         continue
                 
                 if img is None:
@@ -194,7 +200,8 @@ def render_tilespec(tile_fname, output, scale, output_type, in_bbox, tile_size, 
                     img = 255 - img
 
                 print("saving image {}".format(out_fname))
-                cv2.imwrite(out_fname, img)
+                #cv2.imwrite(out_fname, img)
+                rh_img_access_layer.write_image_file(out_fname, img)
 
                 print("single tile rendering and saving to {} took {} seconds.".format(out_fname, time.time() - tile_start_time))
 

@@ -198,8 +198,9 @@ def map_hist_adjuster_files(filtered_files, hist_adjuster_dir):
     return ret
 
 def create_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+    # if not os.path.exists(path):
+    #    os.makedirs(path)
+    common.fs_create_dir(path)
 
 ###############################
 # Driver
@@ -289,7 +290,8 @@ If not set, each job will render a single tile (default: None)',
     create_dir(args.output_dir)
 
 
-    all_files = glob.glob(os.path.join(args.tiles_dir, '*.json'))
+    #all_files = glob.glob(os.path.join(args.tiles_dir, '*.json'))
+    all_files = common.get_ts_files(args.tiles_dir)
     if len(all_files) == 0:
         print("No json files to render, quitting")
         sys.exit(1)
