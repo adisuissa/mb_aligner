@@ -3,7 +3,7 @@ cimport numpy as np
 import cython
 from libc.stdlib cimport rand, RAND_MAX
 from libc.limits cimport INT_MAX
-from libc.math cimport sqrt, floor, cos, sin, asin, INFINITY, fabs
+from libc.math cimport sqrt, floor, cos, sin, asin, INFINITY, fabs, pi
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport printf
 from libcpp.set cimport set as cpp_set
@@ -197,7 +197,7 @@ def ransac_rigid(
             float epsilon,
             float min_inlier_ratio,
             float min_num_inlier,
-            float max_rot_deg
+            float max_rot_deg_cos
         ):
     """
     Ransac optimized for 2d rigid transformations only
@@ -255,6 +255,10 @@ def ransac_rigid(
                 &model_angle, &model_t_x, &model_t_y
                 )
             if fit_res == 0:
+                continue
+
+            if max_rot_deg_cos > 0. and fabs(model_angle) > max_rot_deg_cos:
+                #printf("Filtering due to model_angle too high: %lf", model_angle)
                 continue
 
             # compute the model's score (on the test_matches)
