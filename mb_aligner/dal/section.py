@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 import subprocess
 import fs
+from urllib.parse import urlparse
 
 class Section(object):
     """
@@ -339,8 +340,10 @@ class Section(object):
         """
         #with open(out_fname, 'w') as out_f:
         #    json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
-        with fs.open_fs(fs.path.dirname(out_fname)) as out_fs:
-            with out_fs.open(fs.path.basename(out_fname), "w") as out_f:
+        parsed_url = urlparse(out_fname)
+        url_prefix = "{}://{}".format(parsed_url.scheme, parsed_url.netloc)
+        with fs.open_fs(url_prefix) as out_fs:
+            with out_fs.open(parsed_url.path, "w") as out_f:
                 json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
 
 
