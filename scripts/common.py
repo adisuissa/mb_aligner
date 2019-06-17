@@ -17,7 +17,10 @@ def read_bboxes_grep(ts_fname):
         bbox = [float(x) for x in str.split(',')]
         return bbox
 
-    cmd = "grep -A 5 \"bbox\" {}".format(ts_fname)
+    if "://" in ts_fname:
+        cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(ts_fname)
+    else:
+        cmd = "grep -A 5 \"bbox\" {}".format(ts_fname)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     # Parse all bounding boxes in the given json file
@@ -135,4 +138,15 @@ def fs_create_dir(output_dir):
     with fs.open_fs(fs_loc) as out_fs:
         if not out_fs.exists(fs_path):
             out_fs.makedirs(fs_path)
+
+def get_ts_files(ts_folder):
+
+    with fs.open_fs(ts_folder) as cur_fs:
+        all_ts_fnames = []
+        all_ts_fnames_glob = cur_fs.glob("*.json")
+        for ts_fname_glob in all_ts_fnames_glob:
+            ts_fname = ts_fname_glob.path
+            all_ts_fnames.append(cur_fs.geturl(ts_fname))
+        return all_ts_fnames
+
 
