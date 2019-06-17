@@ -12,6 +12,7 @@ class EstimateUsingSimilarTilesMatches(object):
 
         if kwargs is None:
             kwargs = {}
+        self._avoid_inter_mfov = kwargs.get("avoid_inter_mfov", False)
         self._model_index = kwargs.get("model_index", 1) # Rigid
         self._min_matches = kwargs.get("min_matches", 3)
         self._iterations = kwargs.get("iterations", 1000)
@@ -44,7 +45,7 @@ class EstimateUsingSimilarTilesMatches(object):
             
             if tile1_mfov_index == tile2_mfov_index:
                 intra_mfov_matches[tile1_tile_index, tile2_tile_index].append(cur_match_v)
-            else:
+            elif not self._avoid_inter_mfov:
                 inter_mfov_matches[tile1_tile_index, tile2_tile_index].append(cur_match_v)
 
 
@@ -65,6 +66,8 @@ class EstimateUsingSimilarTilesMatches(object):
                 fake_matches_list = intra_mfov_matches[tile1.tile_index, tile2.tile_index]
                 mfov_fake_matches = intra_mfov_fake_matches
             else:
+                if self._avoid_inter_mfov:
+                    continue
                 fake_matches_list = inter_mfov_matches[tile1.tile_index, tile2.tile_index]
                 mfov_fake_matches = inter_mfov_fake_matches
 
