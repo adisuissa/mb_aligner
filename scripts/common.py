@@ -17,9 +17,11 @@ def read_bboxes_grep(ts_fname):
         bbox = [float(x) for x in str.split(',')]
         return bbox
 
-    if "://" in ts_fname:
+    if "gs://" in ts_fname:
         cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(ts_fname)
     else:
+        ts_fname = ts_fname.replace("osfs://", "")
+        ts_fname = ts_fname.replace("file://", "")
         cmd = "grep -A 5 \"bbox\" {}".format(ts_fname)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
