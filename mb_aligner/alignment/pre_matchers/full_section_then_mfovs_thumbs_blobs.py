@@ -9,6 +9,7 @@ import rh_logger
 from mb_aligner.common.thread_local_storage_lru import ThreadLocalStorageLRU
 import tinyr
 import mb_aligner.common.ransac
+import mb_aligner.dal.common
 
 
 class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
@@ -52,7 +53,8 @@ class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
             thumb_img_fname = "thumbnail_{}.jpg".format(os.path.splitext(os.path.basename(tile.img_fname))[0])
             thumb_img_fname = os.path.join(os.path.dirname(tile.img_fname), thumb_img_fname)
             # Read the tile
-            thumb_img = cv2.imread(thumb_img_fname, 0)
+            thumb_img = mb_aligner.dal.common.read_image_file(thumb_img_fname)
+            #thumb_img = cv2.imread(thumb_img_fname, 0)
             kps, descs = blob_detector.detectAndCompute(thumb_img)
 
             if len(kps) == 0:
