@@ -26,10 +26,11 @@ import pickle
 #import queue
 
 class DetectorWorker(object):
-    def __init__(self, processes_factory, input_queue, all_result_queues):
+    def __init__(self, processes_factory, input_queue, all_result_queues, detector_top_mask):
         self._detector = processes_factory.create_2d_detector()
         self._input_queue = input_queue
         self._all_result_queues = all_result_queues
+        self._detector_top_mask = detector_top_mask
 
     def run(self):
         # Read a job from input queue (blocking)
@@ -49,6 +50,11 @@ class DetectorWorker(object):
             #print("Reading file:", tile.img_fname)
             #img = cv2.imread(tile_fname, 0)
             img = tile.image
+
+            if self._detector_top_mask is not None:
+                img = img[self._detector_top_mask:, :]
+                start_point = np.array(start_point)
+                start_point[1] += self._detector_top_mask
             if crop_bbox is not None:
                 # Find the overlap between the given bbox and the tile actual bounding box,
                 # and crop that overlap area
@@ -62,6 +68,7 @@ class DetectorWorker(object):
                                   ]
                 img = img[local_crop_bbox[2]:local_crop_bbox[3], local_crop_bbox[0]:local_crop_bbox[1]]
                 #print("local_crop_bbox: {}".format(local_crop_bbox))
+
                 
             #print("detecting features file:", job[1])
             kps, descs = self._detector.detect(img)
@@ -78,6 +85,11 @@ class DetectorWorker(object):
             if crop_bbox is not None:
                 kps_pts[:, 0] += local_crop_bbox[0]
                 kps_pts[:, 1] += local_crop_bbox[2]
+
+            if self._detector_top_mask is not None:
+                kps_pts[:, 1] += self._detector_top_mask
+                #start_point[1] -= self._detector_top_mask # no need because we copied start_point
+
             # result = (tile fname, local area, features pts, features descs)
             # Put result in matcher's result queue
             #print("submitting result for:", tile.img_fname)
@@ -264,6 +276,7 @@ class Stitcher(object):
         #reader_params = conf.get('reader_params', {})
         detector_params = conf.get('detector_params', {})
         matcher_params = conf.get('matcher_params', {})
+        detector_top_mask = conf.get('detector_top_mask', None)
         #reader_threads = reader_params.get('threads', 1)
         detector_threads = conf.get('detector_threads', 1)
         matcher_threads = conf.get('matcher_threads', 1)
@@ -294,7 +307,7 @@ class Stitcher(object):
         # Set up the pool of detectors
         #self._detectors = [ThreadWrapper(DetectorWorker, (self._processes_factory, self._detectors_in_queue, self._detectors_result_queues)) for i in range(detector_threads)]
         #self._matchers = [ThreadWrapper(MatcherWorker, (self._processes_factory, self._matchers_in_queue, self._matchers_out_queue, self._detectors_result_queues[i], self._detectors_in_queue, i)) for i in range(matcher_threads)]
-        self._detectors = [ProcessWrapper(DetectorWorker, (self._processes_factory, self._detectors_in_queue, self._detectors_result_queues)) for i in range(detector_threads)]
+        self._detectors = [ProcessWrapper(DetectorWorker, (self._processes_factory, self._detectors_in_queue, self._detectors_result_queues, detector_top_mask)) for i in range(detector_threads)]
         self._matchers = [ProcessWrapper(MatcherWorker, (self._processes_factory, self._matchers_in_queue, self._matchers_out_queue, self._detectors_result_queues[i], self._detectors_in_queue, i)) for i in range(matcher_threads)]
         
 #         # Set up the pools of dethreads (each thread will have its own queue to pass jobs around)
@@ -457,14 +470,7 @@ class Stitcher(object):
 #                     yield t, overlap_t, intersection
             
 
-    def stitch_section(self, section):
-        '''
-        Receives a single section (assumes no transformations), stitches all its tiles, and updaates the section tiles' transformations.
-        '''
-
-        logger.report_event("stitch_section starting.", log_level=logging.INFO)
-        # Compute features
-
+    def _compute_match_features(self, section):
         logger.report_event("Starting feature computation and matching...", log_level=logging.INFO)
         st_time = time.time()
         match_jobs = []
@@ -508,13 +514,30 @@ class Stitcher(object):
         # verify that we have more than 2 matches:
         if total_matches_num <= 2:
             logger.report_event("Couldn't find enough matches for section {}, skipping optimization".format(section.canonical_section_name_no_layer), log_level=logging.ERROR)
-            return
+            return None
                 
         if self._intermediate_directory is not None:
             intermediate_fname = os.path.join(self._intermediate_directory, '{}.pkl'.format(section.canonical_section_name_no_layer))
             logger.report_event("Saving intermediate result to: {}".format(intermediate_fname), log_level=logging.INFO)
             with open(intermediate_fname, 'wb') as out_f:
-                pickle.dump(match_results_map, out_f, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump([match_results_map, missing_matches_map], out_f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+        return match_results_map, missing_matches_map
+
+
+    def stitch_section(self, section, match_results_map=None):
+        '''
+        Receives a single section (assumes no transformations), stitches all its tiles, and updaates the section tiles' transformations.
+        '''
+
+        logger.report_event("stitch_section starting.", log_level=logging.INFO)
+        # Compute features
+
+        if match_results_map is None:
+            match_results_map, missing_matches_map = self._compute_match_features(section)
+            if match_results_map is None:
+                return
 
         logger.report_event("Starting optimization", log_level=logging.INFO)
         # Generate a map between tile and its original estimated location
@@ -524,6 +547,10 @@ class Stitcher(object):
             orig_locations[tile_unique_idx] = [tile.bbox[0], tile.bbox[2]]
 
         optimized_transforms_map = self._optimizer.optimize(orig_locations, match_results_map)
+
+        #if self._filter_inter_mfov_matches:
+        #    # find a "seam" of tiles between 
+
         logger.report_event("Done optimizing, updating tiles transforms", log_level=logging.INFO)
 
         for tile in section.tiles():
