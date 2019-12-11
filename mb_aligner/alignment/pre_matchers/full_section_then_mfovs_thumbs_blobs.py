@@ -82,15 +82,16 @@ class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
 
     def compute_section_blobs(self, sec, sec_cache, pool):
         # Create nested caches is needed
-        if "pre_match_blobs" not in sec_cache:
-            #sec_cache.create_dict("pre_match_blobs")
-            sec_cache["pre_match_blobs"] = {}
+#         if "pre_match_blobs" not in sec_cache:
+#             #sec_cache.create_dict("pre_match_blobs")
+#             sec_cache["pre_match_blobs"] = {}
         
         total_features_num = 0
         # create the mfovs blob computation jobs
         async_results = []
         for mfov in sec.mfovs():
-            if mfov in sec_cache["pre_match_blobs"]:
+            #if mfov in sec_cache["pre_match_blobs"]:
+            if "pre_match_blobs/{}".format(mfov) in sec_cache:
                 continue
             res = pool.apply_async(PreMatch3DFullSectionThenMfovsThumbsBlobs.detect_mfov_blobs, (self._kwargs.get("blob_detector", {}), mfov))
             async_results.append(res)
@@ -98,7 +99,8 @@ class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
         for res in async_results:
             mfov_index, mfov_kps_descs = res.get()
             #sec_cache["pre_match_blobs"].create_dict(mfov_index)
-            sec_cache["pre_match_blobs"][mfov_index] = mfov_kps_descs
+            #sec_cache["pre_match_blobs"][mfov_index] = mfov_kps_descs
+            sec_cache["pre_match_blobs/{}".format(mfov_index)] = mfov_kps_descs
             total_features_num += len(mfov_kps_descs[0])
 
         return total_features_num
@@ -107,8 +109,8 @@ class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
     def collect_all_features(sec_cache):
 
         # TODO - need to see if pre-allocation can improve speed
-        all_kps_arrays = [kps_descs[0] for kps_descs in sec_cache["pre_match_blobs"].values() if len(kps_descs[0]) > 0]
-        all_descs_arrays = [kps_descs[1] for kps_descs in sec_cache["pre_match_blobs"].values() if len(kps_descs[1]) > 0]
+        all_kps_arrays = [kps_descs[0] for k, kps_descs in sec_cache.items() if "pre_match_blobs" in k and len(kps_descs[0]) > 0]
+        all_descs_arrays = [kps_descs[1] for k, kps_descs in sec_cache.items() if "pre_match_blobs" in k and len(kps_descs[1]) > 0]
         return np.vstack(all_kps_arrays), np.vstack(all_descs_arrays)
 
     @staticmethod
@@ -155,13 +157,15 @@ class PreMatch3DFullSectionThenMfovsThumbsBlobs(object):
         def get_kps_descs(mfovs, sec_cache):
             mfovs = list(mfovs)
             if len(mfovs) == 1:
-                mfovs_kps = np.array(sec_cache["pre_match_blobs"][mfovs[0]][0])
-                mfovs_descs = np.array(sec_cache["pre_match_blobs"][mfovs[0]][1])
+                #mfovs_kps = np.array(sec_cache["pre_match_blobs"][mfovs[0]][0])
+                #mfovs_descs = np.array(sec_cache["pre_match_blobs"][mfovs[0]][1])
+                mfovs_kps = np.array(sec_cache["pre_match_blobs/{}".format(mfovs[0])][0])
+                mfovs_descs = np.array(sec_cache["pre_match_blobs/{}".format(mfovs[0])][1])
             else:
                 mfovs_kps_arrays = []
                 mfovs_descs_arrays = []
                 for mfov in mfovs:
-                    kps_descs = sec_cache["pre_match_blobs"][mfov]
+                    kps_descs = sec_cache["pre_match_blobs/{}".format(mfov)]
                     if len(kps_descs[0]) > 0:
                         mfovs_kps_arrays.append(kps_descs[0])
                         mfovs_descs_arrays.append(kps_descs[1])
