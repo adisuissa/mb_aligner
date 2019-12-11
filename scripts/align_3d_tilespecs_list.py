@@ -7,6 +7,8 @@ import logging
 import rh_logger
 import os
 import ujson
+from rh_img_access_layer import FSAccess
+import fs
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
@@ -24,14 +26,18 @@ def parse_args(args=None):
 def run_aligner(args):
 
     # Make a list of all the relevant sections
-    with open(args.sections_list_file, 'rt') as in_f:
+#     with open(args.sections_list_file, 'rt') as in_f:
+#         secs_ts_fnames = in_f.readlines()
+    with FSAccess(args.sections_list_file, False) as in_f:
         secs_ts_fnames = in_f.readlines()
+
     secs_ts_fnames = [fname.strip() for fname in secs_ts_fnames]
     
     # Make sure the tilespecs exist
     all_files_exist = True
     for sec_ts_fname in secs_ts_fnames:
-        if not os.path.exists(sec_ts_fname):
+        # if not os.path.exists(sec_ts_fname):
+        if not FSAccess.exists(sec_ts_fname):
             print("Cannot find tilespec file: {}".format(sec_ts_fname))
             all_files_exist = False
 
@@ -39,20 +45,17 @@ def run_aligner(args):
         print("One or more tilespecs could not be found, exiting!")
         return
 
-    out_folder = './output_aligned_ECS_test9_cropped'
-    conf_fname = '../../conf/conf_example.yaml'
-
 
     conf = StackAligner.load_conf_from_file(args.conf_fname)
     logger.report_event("Loading sections", log_level=logging.INFO)
     sections = []
     # TODO - Should be done in a parallel fashion
     for ts_fname in secs_ts_fnames:
-        with open(ts_fname, 'rt') as in_f:
+        with FSAccess(ts_fname, False) as in_f:
             tilespec = ujson.load(in_f)
         
-        wafer_num = int(os.path.basename(ts_fname).split('_')[0].split('W')[1])
-        sec_num = int(os.path.basename(ts_fname).split('.')[0].split('_')[1].split('Sec')[1])
+        wafer_num = int(fs.path.basename(ts_fname).split('_')[0].split('W')[1])
+        sec_num = int(fs.path.basename(ts_fname).split('.')[0].split('_')[1].split('Sec')[1])
         sections.append(Section.create_from_tilespec(tilespec, wafer_section=(wafer_num, sec_num)))
 
     logger.report_event("Initializing aligner", log_level=logging.INFO)
