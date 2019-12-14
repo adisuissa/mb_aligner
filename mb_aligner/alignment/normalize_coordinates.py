@@ -10,11 +10,14 @@ import rh_logger
 import logging
 import multiprocessing as mp
 import numpy as np
+from mb_aligner.common import utils
+from rh_img_access_layer import FSAccess
+import fs
 
 def add_transformation(in_file, out_file, transform, deltas):
     # load the current json file
     try:
-        with open(in_file, 'r') as f:
+        with FSAccess(in_file, False, True) as f:
             data = json.load(f)
     except:
         logger.report_event("Error when reading {} - Exiting".format(in_file), log_level=logging.ERROR)
@@ -33,11 +36,17 @@ def add_transformation(in_file, out_file, transform, deltas):
                 bbox_new = [bbox[0] - deltas[0], bbox[1] - deltas[0], bbox[2] - deltas[1], bbox[3] - deltas[1]]
                 tile["bbox"] = bbox_new
 
-    with open(out_file, 'w') as f:
+    with FSAccess(out_file, False, False) as f:
         json.dump(data, f, indent=4)
  
 def read_minxy_grep(tiles_spec_fname):
-    cmd = "grep -A 5 \"bbox\" {}".format(tiles_spec_fname)
+
+    if "gs://" in tiles_spec_fname:
+        cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
+    else:
+        tiles_spec_fname = tiles_spec_fname.replace("osfs://", "")
+        tiles_spec_fname = tiles_spec_fname.replace("file://", "")
+        cmd = "grep -A 5 \"bbox\" {}".format(tiles_spec_fname)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     # Output will be of the following format:
@@ -94,12 +103,13 @@ def normalize_coordinates(tile_fnames_or_dir, output_dir, pool):
 
     logger.report_event("Reading {}".format(tile_fnames_or_dir), log_level=logging.INFO)
     for file_or_dir in tile_fnames_or_dir:
-        if not os.path.exists(file_or_dir):
+        if not FSAccess.exists(file_or_dir):
             logger.report_event("{0} does not exist (file/directory), skipping".format(file_or_dir), log_level=logging.WARN)
             continue
 
-        if os.path.isdir(file_or_dir):
-            actual_dir_files = glob.glob(os.path.join(file_or_dir, '*.json'))
+        if FSAccess.isdir(file_or_dir):
+            #actual_dir_files = glob.glob(os.path.join(file_or_dir, '*.json'))
+            actual_dir_files = utils.get_ts_files(file_or_dir)
             all_files.extend(actual_dir_files)
         else:
             all_files.append(file_or_dir)
@@ -141,7 +151,7 @@ def normalize_coordinates(tile_fnames_or_dir, output_dir, pool):
 #     pool.map(lambda in_f, out_f: add_transformation(in_f, out_f, transform, [deltaX, deltaY]), zip(all_files, out_files))
     pool_results = []
     for in_file in all_files:
-        out_file = os.path.join(output_dir, os.path.basename(in_file))
+        out_file = fs.path.join(output_dir, fs.path.basename(in_file))
         res = pool.apply_async(add_transformation, (in_file, out_file, transform, [deltaX, deltaY]))
         pool_results.append(res)
 

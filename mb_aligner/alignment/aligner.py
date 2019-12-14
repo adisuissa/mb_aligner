@@ -19,11 +19,13 @@ import tinyr
 from mb_aligner.common.section_cache import SectionCacheProcesses as SectionCache
 from mb_aligner.alignment.mesh_pts_model_exporter import MeshPointsModelExporter
 from mb_aligner.alignment.normalize_coordinates import normalize_coordinates
-from mb_aligner.common.intermediate_results_dal_pickle import IntermediateResultsDALPickle
+from mb_aligner.common.intermediate_results_dal_pickle import IntermediateResultsDALPickleFactory
+from mb_aligner.common import utils
 import importlib
 import gc
 from mb_aligner.common.thread_local_storage_lru import ThreadLocalStorageLRU
 import functools
+import fs
 
 
 class StackAligner(object):
@@ -69,7 +71,7 @@ class StackAligner(object):
 
         self._create_directories()
 
-        self._inter_results_dal = IntermediateResultsDALPickle(self._work_dir)
+        self._inter_results_dal = IntermediateResultsDALPickleFactory.create(self._work_dir)
 
 
 
@@ -88,14 +90,11 @@ class StackAligner(object):
         print("Processes pool restarted")
 
     def _create_directories(self):
-        def create_dir(dir_name):
-            if not os.path.exists(dir_name):
-                os.makedirs(dir_name)
 
-        create_dir(self._work_dir)
-        self._post_opt_dir = os.path.join(self._work_dir, 'post_optimization_{}'.format(os.path.basename(self._output_dir)))
-        create_dir(self._post_opt_dir)
-        create_dir(self._output_dir)
+        utils.fs_create_dir(self._work_dir)
+        self._post_opt_dir = fs.path.join(self._work_dir, 'post_optimization_{}'.format(fs.path.basename(self._output_dir)))
+        utils.fs_create_dir(self._post_opt_dir)
+        utils.fs_create_dir(self._output_dir)
             
 
     @staticmethod

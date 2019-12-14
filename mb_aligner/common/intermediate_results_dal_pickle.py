@@ -1,6 +1,9 @@
 import pickle
 import os
 import string
+from rh_img_access_layer import FSAccess
+import fs
+from mb_aligner.common import utils
 
 class IntermediateResultsDALPickle(object):
     VALID_CHARS = frozenset("-_%s%s" % (string.ascii_letters, string.digits))
@@ -56,5 +59,62 @@ class IntermediateResultsDALPickle(object):
 
         return True, contents
 
+class IntermediateResultsDALPickleFS(object):
+    VALID_CHARS = frozenset("-_%s%s" % (string.ascii_letters, string.digits))
+
+    def __init__(self, work_dir):
+
+        # Only allow valid filenames in tags/ids (Based on: https://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename )
+
+        self._work_dir = work_dir
+        utils.fs_create_dir(self._work_dir)
+
+    def _make_canonical_fname(self, result_type, result_id):
+        result_type = ''.join(c for c in result_type if c in IntermediateResultsDALPickleFS.VALID_CHARS)
+        result_id = ''.join(c for c in result_id if c in IntermediateResultsDALPickleFS.VALID_CHARS)
+        return '{}.pkl'.format(fs.path.join(self._work_dir, result_type, result_id))
+
+    def _make_result_type_dir(self, result_type):
+        result_type = ''.join(c for c in result_type if c in IntermediateResultsDALPickleFS.VALID_CHARS)
+        result_type_dir = fs.path.join(self._work_dir, result_type)
+        utils.fs_create_dir(result_type_dir)
+
+
+    def load_prev_results(self, result_type, result_id):
+        fname = self._make_canonical_fname(result_type, result_id)
+
+        return IntermediateResultsDALPickleFS.load_prev_single_file_results(fname)
+
+    def store_result(self, result_type, result_id, contents):
+        # ensure that the result type folder exists
+        self._make_result_type_dir(result_type)
+
+        fname = self._make_canonical_fname(result_type, result_id)
+        fname_partial = '{}_partial'.format(fname)
+
+        # Store the contents in a partial file and then change it's name
+        with FSAccess(fname, True, False) as out_f:
+            pickle.dump(contents, out_f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def load_prev_single_file_results(fname):
+        # Check that the prev result file exists
+        if not FSAccess.exists(fname):
+            return False, None
+
+        # load the contents, and return it
+        with FSAccess(fname, True, True) as in_f:
+            contents = pickle.load(in_f)
+
+        return True, contents
+
+class IntermediateResultsDALPickleFactory(object):
+    @staticmethod
+    def create(work_dir):
+        if "://" in work_dir:
+            return IntermediateResultsDALPickleFS(work_dir)
+        else:
+            return IntermediateResultsDALPickle(work_dir)
+ 
 
 

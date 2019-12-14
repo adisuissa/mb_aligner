@@ -1,5 +1,7 @@
 import math
 import importlib
+from urllib.parse import urlparse
+import fs
 
 def generate_hexagonal_grid(boundingbox, spacing):
     """Generates an hexagonal grid inside a given bounding-box with a given spacing between the vertices"""
@@ -28,3 +30,27 @@ def load_plugin(class_full_name):
     plugin_module = importlib.import_module(package)
     plugin_class = getattr(plugin_module, class_name)
     return plugin_class
+
+def get_fs_parsed_url(url):
+    parsed_url = urlparse(url)
+    url_prefix = "{}://{}".format(parsed_url.scheme, parsed_url.netloc)
+    return url_prefix, parsed_url.path
+
+def fs_create_dir(output_dir):
+    fs_loc, fs_path = get_fs_parsed_url(output_dir)
+    with fs.open_fs(fs_loc) as out_fs:
+        if not out_fs.exists(fs_path):
+            out_fs.makedirs(fs_path)
+
+def get_ts_files(ts_folder):
+
+    if "://" not in ts_folder and ":/" in ts_folder:
+        ts_folder = ts_folder.replace(":/", "://")
+    with fs.open_fs(ts_folder) as cur_fs:
+        all_ts_fnames = []
+        all_ts_fnames_glob = cur_fs.glob("*.json")
+        for ts_fname_glob in all_ts_fnames_glob:
+            ts_fname = ts_fname_glob.path
+            all_ts_fnames.append(cur_fs.geturl(ts_fname))
+        return all_ts_fnames
+
