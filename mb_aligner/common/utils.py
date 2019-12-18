@@ -37,6 +37,8 @@ def get_fs_parsed_url(url):
     return url_prefix, parsed_url.path
 
 def fs_create_dir(output_dir):
+    if "://" not in output_dir and ":/" in output_dir:
+        output_dir = output_dir.replace(":/", "://")
     fs_loc, fs_path = get_fs_parsed_url(output_dir)
     with fs.open_fs(fs_loc) as out_fs:
         if not out_fs.exists(fs_path):
