@@ -7,8 +7,9 @@ import csv
 import numpy as np
 import cv2
 import subprocess
+from rh_img_access_layer import FSAccess
 import fs
-from urllib.parse import urlparse
+#from urllib.parse import urlparse
 
 class Section(object):
     """
@@ -56,9 +57,8 @@ class Section(object):
 
     @classmethod
     def _read_image_size(cls, image_fname):
-        with fs.open_fs(fs.path.dirname(image_fname)) as image_fs:
-            with image_fs.open(fs.path.basename(image_fname), "rb") as image_f:
-                img_buf = image_f.read()
+        with FSAccess(image_fname, True) as image_f:
+            img_buf = image_f.read()
         np_arr = np.frombuffer(img_buf, np.uint8)
         img = cv2.imdecode(np_arr, 0)
         return img.shape
@@ -78,9 +78,8 @@ class Section(object):
             return Section._read_lines_using_car(input_file.replace('osfs://', ''))
 
         # open the file, sort the lines, and return the relevant data
-        with fs.open_fs(fs.path.dirname(input_file)) as cur_fs:
-            with cur_fs.open(fs.path.basename(input_file), "rt") as cur_f:
-                sorted_lines = cur_f.read()
+        with FSAccess(input_file, False) as cur_f:
+            sorted_lines = cur_f.read()
         assert(len(sorted_lines) > 0)
         sorted_lines = sorted(sorted_lines.split('\r\n'))
         for line in sorted_lines:
@@ -340,11 +339,8 @@ class Section(object):
         """
         #with open(out_fname, 'w') as out_f:
         #    json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
-        parsed_url = urlparse(out_fname)
-        url_prefix = "{}://{}".format(parsed_url.scheme, parsed_url.netloc)
-        with fs.open_fs(url_prefix) as out_fs:
-            with out_fs.open(parsed_url.path, "w") as out_f:
-                json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
+        with FSAccess(out_fname, False, False) as out_f:
+            json.dump(self.tilespec, out_f, sort_keys=True, indent=4)
 
 
     def get_mfov(self, mfov_idx):
