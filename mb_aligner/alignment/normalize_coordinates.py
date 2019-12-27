@@ -111,7 +111,7 @@ def normalize_coordinates(tile_fnames_or_dir, output_dir, pool):
 
         if FSAccess.isdir(file_or_dir):
             #actual_dir_files = glob.glob(os.path.join(file_or_dir, '*.json'))
-            actual_dir_files = utils.get_ts_files(file_or_dir)
+            actual_dir_files = [entry for entry in utils.get_ts_files(file_or_dir) if ".json" in entry]
             all_files.extend(actual_dir_files)
         else:
             all_files.append(file_or_dir)
