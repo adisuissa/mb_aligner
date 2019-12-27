@@ -40,6 +40,8 @@ def add_transformation(in_file, out_file, transform, deltas):
         json.dump(data, f, indent=4)
  
 def read_minxy_grep(tiles_spec_fname):
+    if "://" not in tiles_spec_fname and ":/" in tiles_spec_fname:
+        tiles_spec_fname = tiles_spec_fname.replace(":/", "://")
 
     if "gs://" in tiles_spec_fname:
         cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
