@@ -40,8 +40,8 @@ def add_transformation(in_file, out_file, transform, deltas):
         json.dump(data, f, indent=4)
  
 def read_minxy(tiles_spec_fname):
-    with FSAccess(tiles_spec_fname, False) as in_f:
-        tilespec = ujson.load(in_f)
+    with FSAccess(tiles_spec_fname, False, True) as in_f:
+        tilespec = json.load(in_f)
 
     min_x = np.min([tile_ts["bbox"][0] for tile_ts in tilespec])
     min_y = np.min([tile_ts["bbox"][2] for tile_ts in tilespec])
