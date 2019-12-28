@@ -39,13 +39,21 @@ def add_transformation(in_file, out_file, transform, deltas):
     with FSAccess(out_file, False, False) as f:
         json.dump(data, f, indent=4)
  
+def read_minxy(tiles_spec_fname):
+    with FSAccess(tiles_spec_fname, False) as in_f:
+        tilespec = ujson.load(in_f)
+
+    min_x = np.min([tile_ts["bbox"][0] for tile_ts in tilespec])
+    min_y = np.min([tile_ts["bbox"][2] for tile_ts in tilespec])
+    return [min_x, min_y]
+
 def read_minxy_grep(tiles_spec_fname):
     if "://" not in tiles_spec_fname and ":/" in tiles_spec_fname:
         tiles_spec_fname = tiles_spec_fname.replace(":/", "://")
 
     if "gs://" in tiles_spec_fname:
-        #cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
-        cmd = "gsutil cat {}".format(tiles_spec_fname)
+        cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
+        #cmd = "gsutil cat {}".format(tiles_spec_fname)
     else:
         tiles_spec_fname = tiles_spec_fname.replace("osfs://", "")
         tiles_spec_fname = tiles_spec_fname.replace("file://", "")
@@ -73,7 +81,6 @@ def read_minxy_grep(tiles_spec_fname):
 
     # Parse all bounding boxes in the given json file
     lines = p.stdout.readlines()
-    print(lines)
     min_x = np.min([float(line.decode('utf-8').strip(' ,\n')) for line in lines[1::7]])
     #max_x = np.max([float(line.decode('utf-8').strip(' ,\n')) for line in lines[2::7]])
     min_y = np.min([float(line.decode('utf-8').strip(' ,\n')) for line in lines[3::7]])
@@ -129,7 +136,7 @@ def normalize_coordinates(tile_fnames_or_dir, output_dir, pool):
     
     # merge the bounding boxes to a single bbox
     if len(all_files) > 0:
-        sections_min_xys = np.array(pool.map(read_minxy_grep, all_files))
+        sections_min_xys = np.array(pool.map(read_minxy, all_files))
 #         entire_image_bbox = np.array([
 #                                 np.min(sections_bboxes[:, 0]), np.max(sections_bboxes[:, 1]),
 #                                 np.min(sections_bboxes[:, 2]), np.max(sections_bboxes[:, 3])
