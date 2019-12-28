@@ -43,8 +43,8 @@ def read_minxy(tiles_spec_fname):
     with FSAccess(tiles_spec_fname, False, True) as in_f:
         tilespec = json.load(in_f)
 
-    min_x = np.min([tile_ts["bbox"][0] for tile_ts in tilespec])
-    min_y = np.min([tile_ts["bbox"][2] for tile_ts in tilespec])
+    min_x = float(np.min([tile_ts["bbox"][0] for tile_ts in tilespec]))
+    min_y = float(np.min([tile_ts["bbox"][2] for tile_ts in tilespec]))
     return [min_x, min_y]
 
 def read_minxy_grep(tiles_spec_fname):
