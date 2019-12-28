@@ -44,7 +44,8 @@ def read_minxy_grep(tiles_spec_fname):
         tiles_spec_fname = tiles_spec_fname.replace(":/", "://")
 
     if "gs://" in tiles_spec_fname:
-        cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
+        #cmd = "gsutil cat {} | grep -A 5 \"bbox\"".format(tiles_spec_fname)
+        cmd = "gsutil cat {}".format(tiles_spec_fname)
     else:
         tiles_spec_fname = tiles_spec_fname.replace("osfs://", "")
         tiles_spec_fname = tiles_spec_fname.replace("file://", "")
@@ -72,6 +73,7 @@ def read_minxy_grep(tiles_spec_fname):
 
     # Parse all bounding boxes in the given json file
     lines = p.stdout.readlines()
+    print(lines)
     min_x = np.min([float(line.decode('utf-8').strip(' ,\n')) for line in lines[1::7]])
     #max_x = np.max([float(line.decode('utf-8').strip(' ,\n')) for line in lines[2::7]])
     min_y = np.min([float(line.decode('utf-8').strip(' ,\n')) for line in lines[3::7]])
